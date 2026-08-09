@@ -162,6 +162,11 @@ class MockProdtrackProvider(ProdtrackProviderBase):
             prodtrack_detail_url=(
                 f"https://mock-shotgrid.example.com/detail/Version/{row['id']}"
             ),
+            prodtrack_entity_detail_url=(
+                f"https://mock-shotgrid.example.com/detail/{entity.type}/{entity.id}"
+                if entity
+                else None
+            ),
         )
 
     def _playlist_from_row(
@@ -599,3 +604,15 @@ class MockProdtrackProvider(ProdtrackProviderBase):
         self, note_id: int, file_path: str, display_name: str
     ) -> bool:
         return True
+
+    def publish_transcript(self, **_: object) -> int:
+        raise NotImplementedError(
+            "Transcript publishing requires a live ShotGrid connection. "
+            "Set PRODTRACK_PROVIDER=shotgrid to use it."
+        )
+
+    def update_transcript(self, **_: object) -> bool:
+        raise NotImplementedError(
+            "Transcript publishing requires a live ShotGrid connection. "
+            "Set PRODTRACK_PROVIDER=shotgrid to use it."
+        )

@@ -18,16 +18,18 @@ import { SquareButton } from './SquareButton';
 import { VersionCard, NoteStatus } from './VersionCard';
 import { TranscriptionMenu } from './TranscriptionMenu';
 import { SettingsModal } from './SettingsModal';
-import { PublishNotesDialog } from './PublishNotesDialog';
+import { PublishDialog } from './PublishDialog';
 import { useGetVersionsForPlaylist, useGetUserByEmail } from '../api';
 import { usePlaylistMetadata, usePlaylistDraftNotes } from '../hooks';
 import { useHotkeyAction, useHotkeyConfig } from '../hotkeys';
+import { useFeatureFlags } from '../contexts';
 
 interface SidebarProps {
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   onReplacePlaylist?: () => void;
   playlistId: number | null;
+  projectId: number | null;
   selectedVersionId?: number | null;
   onVersionSelect?: (version: Version) => void;
   userEmail: string;
@@ -238,6 +240,7 @@ export function Sidebar({
   onCollapsedChange,
   onReplacePlaylist,
   playlistId,
+  projectId,
   selectedVersionId,
   onVersionSelect,
   userEmail,
@@ -251,6 +254,7 @@ export function Sidebar({
   const searchRef = useRef<ExpandableSearchHandle>(null);
 
   const { getLabel } = useHotkeyConfig();
+  const { transcriptionEnabled, inReviewEnabled } = useFeatureFlags();
 
   const toggleSettings = useCallback(() => {
     setIsSettingsOpen((prev) => !prev);
@@ -368,7 +372,7 @@ export function Sidebar({
                 department={version.task?.pipeline_step?.name}
                 thumbnailUrl={version.thumbnail}
                 selected={version.id === selectedVersionId}
-                inReview={inReviewVersionId === version.id}
+                inReview={inReviewEnabled && inReviewVersionId === version.id}
                 noteStatus={((): NoteStatus | null => {
                   const note = draftNotes?.find(
                     (n) => n.version_id === version.id
@@ -400,7 +404,7 @@ export function Sidebar({
                 variant="solid"
                 onClick={() => setIsPublishDialogOpen(true)}
               >
-                Publish Notes
+                Publish
               </Button>
               <UserAvatar
                 name={user?.name ?? userEmail}
@@ -422,7 +426,7 @@ export function Sidebar({
 
       {collapsed ? (
         <CollapsedToolbar>
-          <TranscriptionMenu playlistId={playlistId} collapsed />
+          {transcriptionEnabled && <TranscriptionMenu playlistId={playlistId} collapsed />}
         </CollapsedToolbar>
       ) : (
         <Toolbar>
@@ -469,13 +473,14 @@ export function Sidebar({
           </Tooltip>
           <SettingsModal
             userEmail={userEmail}
+            projectId={projectId}
             open={isSettingsOpen}
             onOpenChange={setIsSettingsOpen}
           />
         </CollapsedFooter>
       ) : (
         <Footer $collapsed={collapsed}>
-          <TranscriptionMenu playlistId={playlistId} />
+          {transcriptionEnabled && <TranscriptionMenu playlistId={playlistId} />}
           <Tooltip content={`Settings (${getLabel('openSettings')})`}>
             <SettingsButton onClick={toggleSettings}>
               <Settings size={16} />
@@ -484,6 +489,7 @@ export function Sidebar({
           </Tooltip>
           <SettingsModal
             userEmail={userEmail}
+            projectId={projectId}
             open={isSettingsOpen}
             onOpenChange={setIsSettingsOpen}
           />
@@ -493,7 +499,7 @@ export function Sidebar({
 
 
       {playlistId && (
-        <PublishNotesDialog
+        <PublishDialog
           open={isPublishDialogOpen}
           onClose={() => setIsPublishDialogOpen(false)}
           playlistId={playlistId}

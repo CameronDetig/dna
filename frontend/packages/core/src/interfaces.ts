@@ -84,6 +84,7 @@ export interface Version extends EntityBase {
   task?: Task;
   notes: Note[];
   prodtrack_detail_url?: string;
+  prodtrack_entity_detail_url?: string;
 }
 
 export interface Playlist extends EntityBase {
@@ -339,6 +340,7 @@ export interface UserSettings {
   regenerate_on_version_change: boolean;
   regenerate_on_transcript_update: boolean;
   sync_prodtrack_tab_on_version_change: boolean;
+  prodtrack_page_type: 'version' | 'entity';
   updated_at: string;
   created_at: string;
 }
@@ -348,6 +350,25 @@ export interface UserSettingsUpdate {
   regenerate_on_version_change?: boolean;
   regenerate_on_transcript_update?: boolean;
   sync_prodtrack_tab_on_version_change?: boolean;
+  prodtrack_page_type?: 'version' | 'entity';
+}
+
+/** Production-specific glossary, keyed by ShotGrid project id. */
+export interface ProjectGlossary {
+  _id: string;
+  project_id: number;
+  content: string;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface GetProjectGlossaryParams {
+  projectId: number;
+}
+
+export interface UpsertProjectGlossaryParams {
+  projectId: number;
+  content: string;
 }
 
 export interface GetUserSettingsParams {
@@ -460,4 +481,100 @@ export interface PublishNotesResponse {
 export interface PublishNotesParams {
   playlistId: number;
   request: PublishNotesRequest;
+}
+
+export interface PublishTranscriptRequest {
+  version_id: number;
+}
+
+export interface PublishTranscriptResponse {
+  transcript_entity_id: number;
+  outcome: 'created' | 'updated' | 'skipped';
+  skipped_reason?: string | null;
+  segments_count: number;
+}
+
+export interface PublishTranscriptParams {
+  playlistId: number;
+  request: PublishTranscriptRequest;
+}
+
+export type NoteQCSeverity = 'warning' | 'error';
+
+export interface NoteQCCheck {
+  _id: string;
+  user_email: string;
+  name: string;
+  prompt: string;
+  severity: NoteQCSeverity;
+  enabled: boolean;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface NoteQCCheckCreate {
+  name: string;
+  prompt: string;
+  severity: NoteQCSeverity;
+  enabled?: boolean;
+}
+
+export interface NoteQCCheckUpdate {
+  name?: string;
+  prompt?: string;
+  severity?: NoteQCSeverity;
+  enabled?: boolean;
+}
+
+export interface NoteQCAttributeSuggestion {
+  to?: string | null;
+  cc?: string | null;
+  subject?: string | null;
+  version_status?: string | null;
+  links?: DraftNoteLink[] | null;
+}
+
+export interface NoteQCResult {
+  check_id: string;
+  check_name: string;
+  severity: NoteQCSeverity;
+  passed: boolean;
+  issue?: string | null;
+  evidence?: string | null;
+  note_suggestion?: string | null;
+  attribute_suggestion?: NoteQCAttributeSuggestion | null;
+}
+
+export interface RunQCChecksRequestBody {
+  user_email: string;
+}
+
+export interface RunQCChecksResponseBody {
+  results: NoteQCResult[];
+}
+
+export interface GetQCChecksParams {
+  userEmail: string;
+}
+
+export interface CreateQCCheckParams {
+  userEmail: string;
+  data: NoteQCCheckCreate;
+}
+
+export interface UpdateQCCheckParams {
+  userEmail: string;
+  checkId: string;
+  data: NoteQCCheckUpdate;
+}
+
+export interface DeleteQCCheckParams {
+  userEmail: string;
+  checkId: string;
+}
+
+export interface RunQCChecksParams {
+  playlistId: number;
+  versionId: number;
+  userEmail: string;
 }

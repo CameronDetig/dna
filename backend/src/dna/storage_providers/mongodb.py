@@ -7,10 +7,22 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Optional
 
+from bson import ObjectId
 from pymongo import AsyncMongoClient, ReturnDocument
 
 from dna.models.draft_note import DraftNote, DraftNoteUpdate
 from dna.models.playlist_metadata import PlaylistMetadata, PlaylistMetadataUpdate
+from dna.models.project_glossary import ProjectGlossary, ProjectGlossaryUpdate
+from dna.models.published_transcript import (
+    PublishedTranscript,
+    PublishedTranscriptUpdate,
+)
+from dna.models.qc_check import (
+    DEFAULT_ACTION_ITEM_CHECK,
+    NoteQCCheck,
+    NoteQCCheckCreate,
+    NoteQCCheckUpdate,
+)
 from dna.models.stored_segment import StoredSegment, StoredSegmentCreate
 from dna.models.user_settings import UserSettings, UserSettingsUpdate
 from dna.storage_providers.storage_provider_base import StorageProviderBase
@@ -42,6 +54,15 @@ class MongoDBStorageProvider(StorageProviderBase):
             [("playlist_id", 1), ("version_id", 1), ("absolute_start_time", 1)],
             name="segments_list_by_version",
         )
+        await self.qc_checks_collection.create_index(
+            [("user_email", 1)],
+            name="qc_checks_by_user",
+        )
+        await self.project_glossaries_collection.create_index(
+            [("project_id", 1)],
+            unique=True,
+            name="project_glossary_by_project",
+        )
         self._indexes_ensured = True
 
     @property
@@ -70,6 +91,18 @@ class MongoDBStorageProvider(StorageProviderBase):
     @property
     def user_settings_collection(self) -> Any:
         return self.db.user_settings
+
+    @property
+    def published_transcripts_collection(self) -> Any:
+        return self.db.published_transcripts
+
+    @property
+    def qc_checks_collection(self) -> Any:
+        return self.db.qc_checks
+
+    @property
+    def project_glossaries_collection(self) -> Any:
+        return self.db.project_glossaries
 
     def _build_query(
         self, user_email: str, playlist_id: int, version_id: int
@@ -159,7 +192,6 @@ class MongoDBStorageProvider(StorageProviderBase):
             "version_id": version_id,
         }
 
-        # Check if we should skip update to protect local edits
         existing = await self.draft_notes.find_one(query)
         if existing:
             # If existing note has unpublished changes (published=False or edited=True),
@@ -320,6 +352,7 @@ class MongoDBStorageProvider(StorageProviderBase):
             "regenerate_on_version_change": False,
             "regenerate_on_transcript_update": False,
             "sync_prodtrack_tab_on_version_change": True,
+            "prodtrack_page_type": "version",
         }
         set_on_insert = {
             "created_at": now,
@@ -342,4 +375,166 @@ class MongoDBStorageProvider(StorageProviderBase):
         """Delete user settings. Returns True if deleted."""
         query = {"user_email": user_email}
         result = await self.user_settings_collection.delete_one(query)
+        return result.deleted_count > 0
+
+    async def get_project_glossary(self, project_id: int) -> Optional[ProjectGlossary]:
+        """Get the glossary for a project by id."""
+        doc = await self.project_glossaries_collection.find_one(
+            {"project_id": project_id}
+        )
+        if doc:
+            doc["_id"] = str(doc["_id"])
+            return ProjectGlossary(**doc)
+        return None
+
+    async def upsert_project_glossary(
+        self, project_id: int, data: ProjectGlossaryUpdate
+    ) -> ProjectGlossary:
+        """Create or update the glossary for a project."""
+        now = datetime.now(timezone.utc)
+        update: dict[str, Any] = {
+            "$set": {"content": data.content, "updated_at": now},
+            "$setOnInsert": {"project_id": project_id, "created_at": now},
+        }
+        result = await self.project_glossaries_collection.find_one_and_update(
+            {"project_id": project_id},
+            update,
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+        result["_id"] = str(result["_id"])
+        return ProjectGlossary(**result)
+
+    async def get_published_transcript(
+        self, playlist_id: int, version_id: int, meeting_id: str
+    ) -> Optional[PublishedTranscript]:
+        """Fetch the bookkeeping row for a previously published transcript."""
+        query = {
+            "playlist_id": playlist_id,
+            "version_id": version_id,
+            "meeting_id": meeting_id,
+        }
+        doc = await self.published_transcripts_collection.find_one(query)
+        if doc:
+            doc["_id"] = str(doc["_id"])
+            return PublishedTranscript(**doc)
+        return None
+
+    async def upsert_published_transcript(
+        self, data: PublishedTranscriptUpdate
+    ) -> PublishedTranscript:
+        """Insert or overwrite the bookkeeping row for a published transcript."""
+        now = datetime.now(timezone.utc)
+        query = {
+            "playlist_id": data.playlist_id,
+            "version_id": data.version_id,
+            "meeting_id": data.meeting_id,
+        }
+        # Composite key only on insert; mutable fields go in $set.
+        payload = data.model_dump()
+        set_on_insert = {
+            "playlist_id": payload.pop("playlist_id"),
+            "version_id": payload.pop("version_id"),
+            "meeting_id": payload.pop("meeting_id"),
+            "created_at": now,
+        }
+        update: dict[str, Any] = {
+            "$set": {**payload, "updated_at": now},
+            "$setOnInsert": set_on_insert,
+        }
+        result = await self.published_transcripts_collection.find_one_and_update(
+            query, update, upsert=True, return_document=ReturnDocument.AFTER
+        )
+        result["_id"] = str(result["_id"])
+        return PublishedTranscript(**result)
+
+    async def get_qc_checks(self, user_email: str) -> list[NoteQCCheck]:
+        query = {"user_email": user_email}
+        cursor = self.qc_checks_collection.find(query)
+        results: list[NoteQCCheck] = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            results.append(NoteQCCheck(**doc))
+        if results:
+            return sorted(results, key=lambda c: (c.name.lower(), c.id))
+        now = datetime.now(timezone.utc)
+        default = DEFAULT_ACTION_ITEM_CHECK
+        await self.qc_checks_collection.find_one_and_update(
+            {"user_email": user_email, "name": default.name},
+            {
+                "$setOnInsert": {
+                    "user_email": user_email,
+                    "name": default.name,
+                    "prompt": default.prompt,
+                    "severity": default.severity,
+                    "enabled": default.enabled,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            },
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+        cursor = self.qc_checks_collection.find(query)
+        results = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            results.append(NoteQCCheck(**doc))
+        return sorted(results, key=lambda c: (c.name.lower(), c.id))
+
+    async def create_qc_check(
+        self, user_email: str, data: NoteQCCheckCreate
+    ) -> NoteQCCheck:
+        now = datetime.now(timezone.utc)
+        doc: dict[str, Any] = {
+            "user_email": user_email,
+            "name": data.name,
+            "prompt": data.prompt,
+            "severity": data.severity,
+            "enabled": data.enabled,
+            "created_at": now,
+            "updated_at": now,
+        }
+        insert = await self.qc_checks_collection.insert_one(doc)
+        stored = await self.qc_checks_collection.find_one({"_id": insert.inserted_id})
+        assert stored is not None
+        stored["_id"] = str(stored["_id"])
+        return NoteQCCheck(**stored)
+
+    async def update_qc_check(
+        self, user_email: str, check_id: str, data: NoteQCCheckUpdate
+    ) -> Optional[NoteQCCheck]:
+        try:
+            oid = ObjectId(check_id)
+        except Exception:
+            return None
+        update_fields = {
+            k: v
+            for k, v in data.model_dump(exclude_unset=True).items()
+            if v is not None
+        }
+        if not update_fields:
+            doc = await self.qc_checks_collection.find_one(
+                {"_id": oid, "user_email": user_email}
+            )
+        else:
+            update_fields["updated_at"] = datetime.now(timezone.utc)
+            doc = await self.qc_checks_collection.find_one_and_update(
+                {"_id": oid, "user_email": user_email},
+                {"$set": update_fields},
+                return_document=ReturnDocument.AFTER,
+            )
+        if not doc:
+            return None
+        doc["_id"] = str(doc["_id"])
+        return NoteQCCheck(**doc)
+
+    async def delete_qc_check(self, user_email: str, check_id: str) -> bool:
+        try:
+            oid = ObjectId(check_id)
+        except Exception:
+            return False
+        result = await self.qc_checks_collection.delete_one(
+            {"_id": oid, "user_email": user_email}
+        )
         return result.deleted_count > 0
