@@ -18,10 +18,12 @@ It will:
 2. Copy example config files into their working locations
 3. Prompt you to choose an LLM provider (OpenAI, Anthropic, or Gemini) and enter your API key
 4. Prompt you to configure the transcription service (remote via vexa.ai, self-hosted, or skip)
-5. Install frontend npm dependencies
-6. Start the Vexa services, create a local dev user, and generate a Vexa API key automatically
-7. Start the full DNA stack with Docker Compose
-8. Poll the DNA API until it is ready and confirm all services are up
+5. Prompt you to choose a production tracking provider (Mock or ShotGrid) and enter credentials if ShotGrid is selected
+6. Prompt you to configure frontend feature flags (In Review, Transcription, AI)
+7. Install frontend npm dependencies
+8. Start the Vexa services, create a local dev user, and generate a Vexa API key automatically
+9. Start the full DNA stack with Docker Compose
+10. Poll the DNA API until it is ready and confirm all services are up
 
 After the script finishes, start the frontend in a new terminal:
 
@@ -232,7 +234,7 @@ docker compose \
   -f docker-compose.debug.yml \
   -f docker-compose.local.yml \
   -f docker-compose.local.vexa.yml \
-  up --build -d
+  up --build
 ```
 
 Services started:
@@ -571,6 +573,12 @@ make start-local
 cd backend
 make stop-local
 
-# Remove volumes (clean slate)
+# Remove volumes (clean slate), only drops mongo_data
+# Vexa's Postgres volume isn't declared in these two files, so it survives this command
 docker compose -f docker-compose.yml -f docker-compose.local.yml down -v
+
+# Remove all volumes, including Vexa's Postgres data (vexa-db-data)
+# Use this for a true clean slate
+docker compose -f docker-compose.yml -f docker-compose.vexa.yml -f docker-compose.debug.yml \
+  -f docker-compose.local.yml -f docker-compose.local.vexa.yml down -v
 ```
