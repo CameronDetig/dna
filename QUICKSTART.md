@@ -16,7 +16,7 @@ It will:
 
 1. Check that Docker and Node.js v18+ are installed and that the Docker daemon is running
 2. Copy example config files into their working locations
-3. Prompt you to choose an LLM provider (OpenAI or Gemini) and enter your API key
+3. Prompt you to choose an LLM provider (OpenAI, Anthropic, or Gemini) and enter your API key
 4. Prompt you to configure the transcription service (remote via vexa.ai, self-hosted, or skip)
 5. Install frontend npm dependencies
 6. Start the Vexa services, create a local dev user, and generate a Vexa API key automatically
@@ -82,6 +82,17 @@ services:
       - LLM_PROVIDER=openai
       - OPENAI_API_KEY=your-openai-api-key
       - OPENAI_MODEL=gpt-4o-mini
+```
+
+**Anthropic (Claude):** requires `ANTHROPIC_API_KEY`; also set `LLM_PROVIDER=anthropic`
+
+```yaml
+services:
+  api:
+    environment:
+      - LLM_PROVIDER=anthropic
+      - ANTHROPIC_API_KEY=your-anthropic-api-key
+      - ANTHROPIC_MODEL=claude-opus-4-8
 ```
 
 **Gemini:** requires `GEMINI_API_KEY`; also set `LLM_PROVIDER=gemini`
@@ -267,10 +278,13 @@ The React app will be available at `http://localhost:5173`.
 | `STORAGE_PROVIDER` | No | `mongodb` | Storage provider type |
 | `VEXA_API_KEY` | Yes | - | API key for Vexa transcription service |
 | `VEXA_API_URL` | No | `http://vexa:8056` | Vexa REST API URL |
-| `LLM_PROVIDER` | No | `openai` | LLM provider (`openai` or `gemini`) |
+| `LLM_PROVIDER` | No | `openai` | LLM provider (`openai`, `anthropic`, or `gemini`) |
 | `OPENAI_API_KEY` | Yes\* | - | OpenAI API key when `LLM_PROVIDER=openai` |
 | `OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI model to use when `LLM_PROVIDER=openai` |
 | `OPENAI_TIMEOUT` | No | `30.0` | Request timeout in seconds when `LLM_PROVIDER=openai` |
+| `ANTHROPIC_API_KEY` | Yes\* | - | Anthropic API key when `LLM_PROVIDER=anthropic` |
+| `ANTHROPIC_MODEL` | No | `claude-opus-4-8` | Anthropic model to use when `LLM_PROVIDER=anthropic` |
+| `ANTHROPIC_TIMEOUT` | No | `60.0` | Request timeout in seconds when `LLM_PROVIDER=anthropic` |
 | `GEMINI_API_KEY` | Yes\* | - | Gemini API key when `LLM_PROVIDER=gemini` |
 | `GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model to use when `LLM_PROVIDER=gemini` |
 | `GEMINI_TIMEOUT` | No | `30.0` | Request timeout in seconds when `LLM_PROVIDER=gemini` |

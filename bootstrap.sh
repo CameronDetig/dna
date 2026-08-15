@@ -317,7 +317,7 @@ configure_transcription() {
     echo "  Vexa needs an OpenAI Whisper-compatible transcription backend."
     echo ""
     echo -e "  1) Remote service via vexa.ai  ${BOLD}(recommended — free tier available)${NC}"
-    echo "     Get a free key at: https://cal.com/dmitrygrankin/web?duration=15"
+    echo "     Get a free key at: https://vexa.ai/account"
     echo ""
     echo "  2) Self-hosted transcription service"
     echo "     Requires Docker (GPU recommended). Setup guide:"
@@ -511,7 +511,7 @@ bootstrap_vexa() {
             up -d --force-recreate --remove-orphans vexa vexa-db
     )
 
-    info "Waiting for Vexa admin API on :8057 (may take ~30 s on first pull)..."
+    info "Waiting for Vexa admin API on :8056 (may take ~30 s on first pull)..."
     local retries=40
     until curl -sf \
             -H "X-Admin-API-Key: ${VEXA_ADMIN_TOKEN}" \
