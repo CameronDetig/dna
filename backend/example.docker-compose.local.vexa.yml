@@ -1,5 +1,8 @@
 services:
   vexa:
     environment:
+      # Vexa 0.10's startup probe does not send the Idempotency-Key
+      # now required by the remote transcription endpoint.
+      - SKIP_TRANSCRIPTION_CHECK=true
       - TRANSCRIBER_API_KEY=**********************
       - TRANSCRIBER_URL=https://transcription.vexa.ai/v1/audio/transcriptions

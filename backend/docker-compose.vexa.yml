@@ -1,6 +1,6 @@
 services:
   vexa:
-    image: vexaai/vexa-lite:latest
+    image: vexaai/vexa-lite:0.10.6.2
     platform: linux/amd64
     container_name: vexa
     ports:
