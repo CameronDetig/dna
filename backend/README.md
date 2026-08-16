@@ -35,6 +35,7 @@ Configure the backend LLM with the `LLM_PROVIDER` environment variable. The back
 | Value | Provider | Required environment variables | Optional environment variables |
 |-------|----------|--------------------------------|--------------------------------|
 | `openai` | OpenAI (default) | `OPENAI_API_KEY` | `OPENAI_MODEL` (default: `gpt-4o-mini`), `OPENAI_TIMEOUT` (default: `30.0`) |
+| `anthropic` | Anthropic (Claude), native Messages API | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` (default: `claude-opus-4-8`), `ANTHROPIC_TIMEOUT` (default: `60.0`) |
 | `gemini` | Google Gemini via the OpenAI-compatible endpoint | `GEMINI_API_KEY` | `GEMINI_MODEL` (default: `gemini-2.5-flash`), `GEMINI_TIMEOUT` (default: `30.0`), `GEMINI_URL` (default: `https://generativelanguage.googleapis.com/v1beta/openai/`) |
 
 - **Local development:** If you do not set `LLM_PROVIDER`, the backend uses `openai`.
@@ -88,6 +89,15 @@ To configure ShotGrid and other local settings, create a local docker-compose ov
            - LLM_PROVIDER=openai
            - OPENAI_API_KEY=your-openai-api-key
            - OPENAI_MODEL=gpt-4o-mini
+     ```
+
+     ```yaml
+     services:
+       api:
+         environment:
+           - LLM_PROVIDER=anthropic
+           - ANTHROPIC_API_KEY=your-anthropic-api-key
+           - ANTHROPIC_MODEL=claude-opus-4-8
      ```
 
      ```yaml
